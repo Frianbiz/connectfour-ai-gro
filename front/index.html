@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="en" ng-app="vendetta2" ng-controller="mainCtrl">
+    <head>
+        <title>vendetta2, le jeu</title>
+    </head>
+    <body>
+    <script   src="https://code.jquery.com/jquery-2.2.4.min.js"   integrity="sha256-BbhdlvQf/xTY9gja0Dq3HiwQF8LaCRTXxZKRutelT44="   crossorigin="anonymous"></script>
+    <script src="https://cdn.socket.io/socket.io-1.4.5.js"></script>
+    <script type="application/javascript">
+        var ennemy;
+
+        var ia = function(matrice) {
+
+            var col = Math.round(Math.random() * 6);
+            var x = 6;
+            var y = 6;
+
+            var best_plays = [0, 0, 0, 0, 0, 0, 0];
+
+            while (x >= 0) {
+                while (y >= 0) {
+                    var pion = matrice[x][y];
+
+
+                        if(pion == ennemy) {
+                            var t_best_play = get_best_plays(matrice, x, y, ennemy);
+
+                            for(var i in t_best_play)
+                            {
+                                best_plays[i] += t_best_play[i];
+                            }
+
+                        }
+                        else if(pion == moi)
+                        {
+                            var t_best_play = get_best_plays(matrice, x, y, moi);
+
+                            for(var i in t_best_play)
+                            {
+                                best_plays[i] += t_best_play[i];
+                            }
+                        }
+
+                    y--;
+                }
+
+                x--
+                y=6;
+            }
+
+
+            var max = 0;
+            var max_i = 0;
+            for(var i in best_plays)
+            {
+                if(best_plays[i] > max)
+                {
+                    max = best_plays[i];
+                    max_i = i;
+                }
+            }
+
+
+
+            if(max > 0)
+            {
+                col = max_i;
+            }
+
+
+            return col;
+        };
+
+        function canWin(pion4array, pion)
+        {
+            var pionCount = 0;
+            var zeroPos = -1;
+            for(var i in pion4array)
+            {
+                if(pion4array[i].color == pion) pionCount++;
+
+                if(pion4array[i].color == 0) zeroPos = i;
+            }
+
+            return pionCount >= 3 && zeroPos >= 0 ? pion4array[zeroPos].y : -1;
+        }
+
+
+        var must_not_play = [];
+        function get_best_plays(matrice, x, y, pion)
+        {
+            var level = (pion == moi) ? 2 : 1;
+            var t_best_plays = [0, 0, 0, 0, 0, 0, 0];
+            //CHECK HORIZONTAL
+            var l_y = y, r_y = y;
+
+            //CHECK VERTICAL HAUT
+            if (x > 2) {
+                var pion1 = { color : matrice[x][y], x: x, y: y};
+                var pion2 = { color : matrice[x - 1][y], x: x - 1, y: y};
+                var pion3 = { color : matrice[x - 2][y], x: x - 2, y: y};
+                var pion4 = { color : matrice[x - 3][y], x: x - 3, y: y};
+
+                var ultra_danger_col = canWin([pion1, pion2, pion3, pion4], pion);
+                if(ultra_danger_col >= 0) {
+                    t_best_plays[ultra_danger_col] = 10000 * level;
+                }
+            }
+
+            //CHECK HORIZONTAL GAUCHE
+            if (y > 2) {
+                var pion1 = matrice[x][y];
+                var pion2 = matrice[x][y - 1];
+                var pion3 = matrice[x][y - 2];
+                var pion4 = matrice[x][y - 3];
+
+                var ultra_danger_col = canWin([pion1, pion2, pion3, pion4], pion);
+                if(ultra_danger_col >= 0) {
+                    t_best_plays[ultra_danger_col] = 10000 * level;
+                }
+            }
+
+
+            //CHECK DIAGO HAUT DROITE
+            if (x > 2 && y < 4) {
+                var pion1 = matrice[x][y];
+                var pion2 = matrice[x - 1][y + 1];
+                var pion3 = matrice[x - 2][y + 2];
+                var pion4 = matrice[x - 3][y + 3];
+
+                var ultra_danger_col = canWin([pion1, pion2, pion3, pion4], pion);
+                if(ultra_danger_col >= 0) {
+                    t_best_plays[ultra_danger_col] = 10000 * level;
+                }
+            }
+
+            //CHECK DIAGO HAUT GAUCHE
+            if (x > 2 && y > 2) {
+                var pion1 = matrice[x][y];
+                var pion2 = matrice[x - 1][y - 1];
+                var pion3 = matrice[x - 2][y - 2];
+                var pion4 = matrice[x - 3][y - 3];
+
+
+                var ultra_danger_col = canWin([pion1, pion2, pion3, pion4], pion);
+                if(ultra_danger_col >= 0) {
+                    t_best_plays[ultra_danger_col] = 10000 * level;
+                }
+            }
+
+
+
+
+            while (l_y > 0 && matrice[x][l_y] == pion) {
+                l_y--;
+            }
+            if (matrice[x][l_y] == 0) {
+                var accu = y - l_y;
+                t_best_plays[l_y] += level + Math.pow(accu, 2);
+            }
+
+            while (r_y < 6 && matrice[x][r_y] == pion) {
+                r_y++;
+            }
+            if (matrice[x][r_y] == 0) {
+                var accu = r_y - y;
+                t_best_plays[r_y]+= level + Math.pow(accu, 2);
+            }
+
+
+            //CHECK VERTICAL
+            var b_x = x;
+
+            while (b_x > 0 && matrice[b_x][y] == pion) {
+                b_x--;
+            }
+            if (matrice[b_x][y] == 0) {
+                var accu = x - b_x;
+                t_best_plays[y]+= level + Math.pow(accu, 2);
+            }
+
+
+            //CHECK DIAG HAUT GAUCHE
+            var b_x = x, l_y = y;
+
+            while (b_x > 0 && l_y > 0 && matrice[b_x][l_y] == pion) {
+                b_x--;
+                l_y--;
+            }
+            if (matrice[b_x][l_y] == 0 && (x - b_x > 1) && (y - l_y) > 1 && matrice[b_x - 1] &&  matrice[b_x - 1][l_y] != 0) {
+                var accu = x - b_x;
+                t_best_plays[l_y]+= level + Math.pow(accu, 2);
+            }
+
+
+            //CHECK DIAG HAUT DROITE
+            var b_x = x, r_y = y;
+
+            while (b_x > 0 && r_y < 6 && matrice[b_x][r_y] == pion) {
+                b_x--;
+                r_y++;
+            }
+
+            if (matrice[b_x][r_y] == 0  && (x - b_x > 1) && (r_y - y) > 1 && matrice[b_x - 1] && matrice[b_x - 1][r_y] != 0) {
+                var accu = x - b_x;
+                t_best_plays[r_y] += level + Math.pow(accu, 2);;
+            }
+
+            return t_best_plays;
+        }
+
+        var moi  = undefined;
+        var socket = undefined;
+        var connection = function() {
+            socket = io.connect('http://192.168.1.104:8080');
+            socket.emit('connectPlayer', {name : "GRO"});
+
+
+            socket.on("your_turn", function(data){
+                moi = data.player;
+                $("body").html(moi);
+                play(data.matrice);
+            });
+
+            socket.on("played", function(data){
+                 ennemy = data.player == "J" ? "R" : "J";
+            });
+
+            socket.on("winner", function(data) {
+            });
+
+            socket.on("loser", function(data){
+            });
+
+            socket.on('disconnect', function(){
+                socket.disconnect();
+
+                setTimeout(function(){
+                    connection();
+                }, 300);
+            })
+
+        };
+
+        connection();
+        var play = function (matrice){
+            var col = ia(matrice);
+            setTimeout(function(){
+                socket.emit('play', {col:col});
+            }, 10);
+        }
+
+    </script>
+
+    </body>
+</html>
